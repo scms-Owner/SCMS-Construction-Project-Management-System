@@ -40,13 +40,30 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
 $("#menuToggle").addEventListener("click",()=>$("#sidebar").classList.toggle("open"));
 $("#nav").addEventListener("click",e=>{const b=e.target.closest("[data-page]");if(b)setPage(b.dataset.page)});
 $("#logoutBtn").addEventListener("click",async()=>{try{await fetch("/api/auth/sign-out",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json"},body:"{}"})}finally{window.location.reload()}});
+let authMode="login";
+$("#authSwitch").addEventListener("click",()=>{
+  authMode=authMode==="login"?"signup":"login";
+  $("#ownerNameRow").hidden=authMode!=="signup";
+  $("#ownerName").required=authMode==="signup";
+  $("#loginPassword").autocomplete=authMode==="login"?"current-password":"new-password";
+  $("#loginSubmit").innerHTML=authMode==="login"?'নিরাপদ লগইন <span>→</span>':'Owner অ্যাকাউন্ট তৈরি করুন <span>→</span>';
+  $("#authSwitch").textContent=authMode==="login"?"প্রথমবার ব্যবহার করছেন? Owner অ্যাকাউন্ট তৈরি করুন":"আগে থেকেই অ্যাকাউন্ট আছে? লগইন করুন";
+  $("#authMessage").hidden=true;
+});
 $("#loginForm").addEventListener("submit",async e=>{
   e.preventDefault();const button=$("#loginSubmit"),msg=$("#authMessage");button.disabled=true;msg.hidden=true;
+  const payload={email:$("#loginEmail").value.trim(),password:$("#loginPassword").value};
+  if(authMode==="signup")payload.name=$("#ownerName").value.trim();
   try{
-    const result=await fetch("/api/auth/sign-in/email",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json","accept":"application/json"},body:JSON.stringify({email:$("#loginEmail").value.trim(),password:$("#loginPassword").value})});
+    const result=await fetch(authMode==="login"?"/api/auth/sign-in/email":"/api/auth/sign-up/email",{method:"POST",credentials:"same-origin",headers:{"content-type":"application/json","accept":"application/json"},body:JSON.stringify(payload)});
     const data=await result.json().catch(()=>({}));
-    if(!result.ok||data.error){msg.textContent=data.message||data.error||"লগইন হয়নি। ইমেইল ও পাসওয়ার্ড যাচাই করুন।";msg.hidden=false;return}
-    await checkSession();
+    if(!result.ok||data.error){msg.textContent=data.message||data.error||(authMode==="signup"?"Owner account তৈরি হয়নি।":"লগইন হয়নি। ইমেইল ও পাসওয়ার্ড যাচাই করুন।");msg.hidden=false;return}
+    if(authMode==="signup"){
+      const profile=await fetch("/api/me",{credentials:"same-origin",cache:"no-store"});
+      const profileData=await profile.json().catch(()=>({}));
+      if(profile.ok&&profileData.authorized&&profileData.user?.role==="OWNER_ADMIN"){state.user=profileData.user;$("#authWrap").hidden=true;$("#appShell").hidden=false;await loadData();renderPage();toast("Owner অ্যাকাউন্ট তৈরি ও যাচাই হয়েছে।")}
+      else{msg.textContent=profileData.error||"অ্যাকাউন্ট তৈরি হয়েছে। Owner অ্যাকাউন্ট যাচাই করতে পারেনি; Vercel-এ SCMS_OWNER_EMAIL সেট আছে কি না দেখুন।";msg.hidden=false}
+    }else await checkSession();
   }catch(err){msg.textContent=err.message||"সার্ভারের সঙ্গে যোগাযোগ করা যাচ্ছে না।";msg.hidden=false}
   finally{button.disabled=false}
 });
