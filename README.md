@@ -62,3 +62,15 @@ In Vercel, open the `scmssubproject` project -> Settings -> Environment Variable
 After deployment, test `/api/health` (expected JSON has `ok: true`, `database: true`, `auth: true`) and test sign-up/sign-in with the owner email. If the owner already exists in `scms.app_users`, do not duplicate the account; check the `auth_subject` mapping before first login.
 
 **Scope limitation:** This is the first secure login/database connectivity layer, not completion of all SCMS workflows. Project CRUD, BOQ, measurement approvals, billing, attendance, payments, role-specific data APIs, backup/restore and end-to-end security tests remain incomplete. Keep RLS and direct client grants fail-closed; do not expose the Neon Data API directly to the browser.
+
+
+## Owner-only implementation milestone (2026-10-19)
+
+- The app is intended for one SCMS Owner; subcontractors do not receive accounts.
+- Public sign-up is not available. First-time account creation is restricted server-side to the exact `SCMS_OWNER_EMAIL` environment variable.
+- `/api/me`, `/api/projects`, and `/api/subcontractors` verify the authenticated session and require the `OWNER_ADMIN` role server-side.
+- The Projects page now reads and writes project records to Neon, including a main-contract record; the Subcontractors page reads and writes the office-only subcontractor directory.
+- Audit log entries are written when projects and subcontractors are created.
+- Dashboard metrics are based on API data; fabricated demo project rows and financial figures were removed.
+- Work orders, daily progress, bill approval, payment caps, main-company receivables, and profit/loss remain planned modules and must not be treated as live until their APIs and database workflows are implemented and tested.
+- The Vercel project is connected to this GitHub repository. Each commit triggered a production deployment marked READY, but the deployment could not be independently fetched from this tool session because Vercel denied the current connection access to the protected deployment.
