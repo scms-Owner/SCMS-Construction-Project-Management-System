@@ -1,9 +1,10 @@
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
-const state = { user:null, projects:[], contractors:[], workOrders:[], page:"dashboard", search:"" };
+const state = { user:null, projects:[], contractors:[], workOrders:[], boqItems:[], boqProjectId:"", page:"dashboard", search:"" };
 const titles = {
   dashboard:["ড্যাশবোর্ড","আপনার সব প্রজেক্ট ও আর্থিক কার্যক্রমের নিয়ন্ত্রণকেন্দ্র।"],
   projects:["মেইন প্রজেক্ট","মেইন কোম্পানির কাছ থেকে পাওয়া প্রজেক্টের রেজিস্টার।"],
+  boq:["মেইন BOQ ও রেট","প্রতিটি মেইন প্রজেক্টের আইটেম, পরিমাণ ও মেইন কোম্পানির রেট সংরক্ষণ করুন।"],
   contractors:["সাব-কন্ট্রাক্টর","কন্ট্রাক্টরের তথ্য একবার রেজিস্টার করুন; পরে প্রজেক্ট ও ওয়ার্ক অর্ডারের সঙ্গে যুক্ত হবে।"],
   workorders:["ওয়ার্ক অর্ডার","প্রজেক্ট, কন্ট্রাক্টর ও আইটেম রেট যুক্ত করে ওয়ার্ক অর্ডার তৈরি করুন।"],
   progress:["দৈনিক অগ্রগতি","প্রতিদিনের কাজের পরিমাণ, অনুমোদিত মাপ ও cumulative progress ট্র্যাক করুন।"],
@@ -88,6 +89,7 @@ function renderPage(){
   const view=$("#pageView");setActions("");
   if(state.page==="dashboard") return renderDashboard(view);
   if(state.page==="projects") return renderProjects(view);
+  if(state.page==="boq") return renderBoq(view);
   if(state.page==="contractors") return renderContractors(view);
   if(state.page==="workorders") return renderWorkOrders(view);
   const moduleInfo={
@@ -144,6 +146,49 @@ function renderProjects(view){
   $("#projectSearch").value=state.search;
   $("#projectSearch").addEventListener("input",e=>{state.search=e.target.value;const q=state.search.toLowerCase();const filtered=state.projects.filter(p=>[p.project_code,p.name,p.client_name,p.site_address].some(v=>String(v||"").toLowerCase().includes(q)));$("#projectTableWrap").innerHTML=projectTable(filtered);const empty=$("#emptyNewProject");if(empty)empty.onclick=openProjectForm});
   const empty=$("#emptyNewProject");if(empty)empty.onclick=openProjectForm;
+}
+async function renderBoq(view){
+  setActions('<button class="primary-btn" id="newBoqItemBtn">＋ নতুন BOQ আইটেম</button>');
+  const selected=state.boqProjectId||state.projects[0]?.id||"";
+  state.boqProjectId=selected;
+  view.innerHTML='<section class="panel"><div class="form-grid"><div class="field"><label for="boqProjectSelect">মেইন প্রজেক্ট নির্বাচন করুন</label><select id="boqProjectSelect">'+state.projects.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===selected?'selected':'')+'>'+esc(p.project_code+" — "+p.name)+'</option>').join("")+'</select></div><div class="field"><label>আইটেম সংখ্যা</label><input id="boqCount" readonly value="লোড হচ্ছে…"></div></div></section><div class="section-heading"><div><h2>মেইন BOQ ও রেট শিডিউল</h2><p class="muted">এই রেটগুলো শুধু Owner view-তে থাকবে; প্রিন্ট ওয়ার্ক অর্ডারে মেইন রেট দেখানো হবে না।</p></div></div><div id="boqTableWrap" class="loading">BOQ লোড হচ্ছে…</div>';
+  $("#newBoqItemBtn").onclick=()=>openBoqForm(state.boqProjectId);
+  $("#boqProjectSelect").addEventListener("change",async e=>{state.boqProjectId=e.target.value;await loadBoqForPage()});
+  if(!selected){$("#boqCount").value="প্রজেক্ট নেই";$("#boqTableWrap").innerHTML='<div class="empty-state"><h2>প্রথমে একটি মেইন প্রজেক্ট তৈরি করুন</h2><p>তারপর সেই প্রজেক্টের BOQ আইটেম ও মেইন রেট এন্ট্রি করতে পারবেন।</p><button class="primary-btn" id="boqCreateProject">＋ নতুন প্রজেক্ট</button></div>';$("#boqCreateProject").onclick=openProjectForm;return}
+  await loadBoqForPage();
+}
+async function loadBoqForPage(){
+  const wrap=$("#boqTableWrap");if(!wrap)return;
+  wrap.innerHTML='<div class="loading">BOQ লোড হচ্ছে…</div>';
+  try{
+    const d=await api("/api/boq?project_id="+encodeURIComponent(state.boqProjectId));state.boqItems=d.items||[];
+    $("#boqCount").value=state.boqItems.length+"টি আইটেম";
+    const total=Number(d.main_total||0);
+    wrap.innerHTML='<div class="metrics" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:15px"><article class="metric"><div class="metric-top"><span>মেইন BOQ মোট</span><span class="metric-icon green">৳</span></div><strong>'+money(total)+'</strong><small>পরিমাণ × মেইন রেট</small></article><article class="metric"><div class="metric-top"><span>রেট এন্ট্রি</span><span class="metric-icon blue">▥</span></div><strong>'+state.boqItems.length+'</strong><small>এই প্রজেক্টে সক্রিয় আইটেম</small></article></div>'+boqTable(state.boqItems);
+  }catch(err){wrap.innerHTML='<div class="empty-state"><h2>BOQ লোড করা যায়নি</h2><p>'+esc(err.message)+'</p></div>'}
+}
+function boqTable(items){
+  if(!items.length)return '<div class="empty-state"><div class="empty-icon">▥</div><h2>এই প্রজেক্টে BOQ রেট নেই</h2><p>প্রতিটি আইটেমের মেইন রেট ও পরিমাণ এন্ট্রি করুন। এরপর সাব-কন্ট্রাক্ট ওয়ার্ক অর্ডার তৈরি করা যাবে।</p><button class="primary-btn" id="emptyNewBoq">＋ প্রথম BOQ আইটেম</button></div>';
+  return '<div class="table-card"><div class="table-scroll"><table><thead><tr><th>আইটেম কোড</th><th>কাজের বর্ণনা</th><th>ইউনিট</th><th>পরিমাণ</th><th>মেইন রেট (৳)</th><th>মেইন মোট (৳)</th></tr></thead><tbody>'+items.map(i=>'<tr><td><b>'+esc(i.item_code)+'</b></td><td>'+esc(i.description)+'</td><td>'+esc(i.unit)+'</td><td class="number">'+Number(i.quantity||0).toLocaleString("en-BD")+'</td><td class="number">'+money(i.main_rate)+'</td><td class="number">'+money(i.main_line_total)+'</td></tr>').join("")+'</tbody></table></div></div>';
+}
+function openBoqForm(projectId){
+  if(!projectId){toast("আগে একটি প্রজেক্ট নির্বাচন করুন।",true);return}
+  showModal("নতুন মেইন BOQ আইটেম",`
+    <form id="boqForm">
+      <div class="form-grid">
+        <div class="field"><label for="boqItemCode">আইটেম কোড *</label><input id="boqItemCode" name="item_code" required maxlength="40" placeholder="A-01"></div>
+        <div class="field"><label for="boqUnit">ইউনিট *</label><select id="boqUnit" name="unit" required><option value="LS">LS (Lump Sum)</option><option value="sft">sft</option><option value="sqft">sqft</option><option value="sqm">sqm</option><option value="cft">cft</option><option value="cft">CFT</option><option value="kg">kg</option><option value="pcs">pcs</option><option value="rft">rft</option><option value="day">day</option><option value="m3">m³</option><option value="m2">m²</option></select></div>
+        <div class="field full"><label for="boqDescription">কাজের বর্ণনা *</label><input id="boqDescription" name="description" required maxlength="500" placeholder="যেমন: Earth Cutting"></div>
+        <div class="field"><label for="boqQuantity">পরিমাণ *</label><input id="boqQuantity" name="quantity" type="number" min="0.0001" step="0.0001" value="1" required></div>
+        <div class="field"><label for="boqRate">মেইন কোম্পানির রেট (৳) *</label><input id="boqRate" name="main_rate" type="number" min="0" step="0.0001" required></div>
+        <div class="field full"><div class="notice" style="margin:0">মেইন রেট শুধু আপনার অফিসের অভ্যন্তরীণ হিসাব। সাব-কন্ট্রাক্টরের ওয়ার্ক অর্ডারে ছাড়-পরবর্তী সাব-কন্ট্রাক্ট রেটই দেখানো হবে।</div></div>
+      </div>
+      <div class="form-actions"><button class="secondary-btn" type="button" data-cancel>বাতিল</button><button class="primary-btn" type="submit">BOQ আইটেম সংরক্ষণ</button></div>
+    </form>`);
+  const form=$("#boqForm");form.querySelector("[data-cancel]").onclick=closeModal;
+  form.addEventListener("submit",async e=>{e.preventDefault();const button=form.querySelector('[type="submit"]');button.disabled=true;const payload=Object.fromEntries(new FormData(form).entries());payload.project_id=projectId;payload.quantity=Number(payload.quantity);payload.main_rate=Number(payload.main_rate);
+    try{await api("/api/boq",{method:"POST",body:JSON.stringify(payload)});closeModal();await loadBoqForPage();toast("মেইন BOQ আইটেম সংরক্ষণ হয়েছে।")}catch(err){toast(err.message,true)}finally{button.disabled=false}
+  });
 }
 function renderContractors(view){
   setActions('<button class="primary-btn" id="newContractorBtn">＋ নতুন সাব-কন্ট্রাক্টর</button>');
