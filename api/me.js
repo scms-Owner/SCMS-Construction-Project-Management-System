@@ -71,6 +71,9 @@ module.exports = async function handler(req, res) {
     if (!rows[0].active) {
       return res.status(403).json({ authenticated: true, authorized: false, error: "এই অ্যাকাউন্টটি নিষ্ক্রিয়।" });
     }
+    if (rows[0].role !== "OWNER_ADMIN") {
+      return res.status(403).json({ authenticated: true, authorized: false, error: "এই অ্যাপটি শুধু SCMS Owner ব্যবহার করতে পারবেন।" });
+    }
 
     return res.status(200).json({
       authenticated: true,
