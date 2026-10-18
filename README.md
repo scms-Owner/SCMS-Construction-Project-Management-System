@@ -40,3 +40,25 @@ Open `index.html` for the static Phase 1 interface. It uses demonstration-only s
 
 ## Server environment
 See `.env.example`. Keep all secrets server-side.
+
+
+## Secure login and server-side database connection (initial integration)
+
+The repository now includes Vercel Node API routes:
+- `/api/auth/*` proxies only sign-in, sign-up, sign-out and get-session to Neon Managed Auth using same-origin cookies.
+- `/api/me` verifies the Neon Auth session server-side and resolves the SCMS role from `scms.app_users`.
+- `/api/health` checks the server-side Neon database connection without returning credentials or database details.
+- The browser does not receive `DATABASE_URL`. New accounts cannot select their own SCMS role. The configured owner email can be bootstrapped as `OWNER_ADMIN`; other users must be assigned a role by an authorized administrator.
+
+### Required Vercel environment variables
+
+In Vercel, open the `scmssubproject` project -> Settings -> Environment Variables. Add these values for **Production** (and Preview only if needed), then redeploy:
+
+- `DATABASE_URL`: Neon pooled connection string for the `scms_construction` database on the `main` branch. Copy it from Neon; do not put it in GitHub or send it in chat.
+- `NEON_AUTH_BASE_URL`: `https://ep-lucky-hill-a1ygsl60.neonauth.ap-southeast-1.aws.neon.tech/scms_construction/auth`
+- `SCMS_OWNER_EMAIL`: the exact email address the company owner will use to register/sign in. This address is not set in source code.
+- `APP_BASE_URL`: `https://scmssubproject.vercel.app`
+
+After deployment, test `/api/health` (expected JSON has `ok: true`, `database: true`, `auth: true`) and test sign-up/sign-in with the owner email. If the owner already exists in `scms.app_users`, do not duplicate the account; check the `auth_subject` mapping before first login.
+
+**Scope limitation:** This is the first secure login/database connectivity layer, not completion of all SCMS workflows. Project CRUD, BOQ, measurement approvals, billing, attendance, payments, role-specific data APIs, backup/restore and end-to-end security tests remain incomplete. Keep RLS and direct client grants fail-closed; do not expose the Neon Data API directly to the browser.
