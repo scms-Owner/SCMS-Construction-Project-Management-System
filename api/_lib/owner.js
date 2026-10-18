@@ -1,6 +1,6 @@
 const { neon } = require("@neondatabase/serverless");
 
-const AUTH_BASE_URL = process.env.NEON_AUTH_BASE_URL || "https://ep-lucky-hill-a1ygsl60.neonauth.ap-southeast-1.aws.neonauth.ap-southeast-1.aws.neon.tech/scms_construction/auth";
+const AUTH_BASE_URL = process.env.NEON_AUTH_BASE_URL || "https://ep-lucky-hill-a1ygsl60.neonauth.ap-southeast-1.aws.neon.tech/scms_construction/auth";
 
 async function requireOwner(req) {
   if (!req.headers.cookie) {
