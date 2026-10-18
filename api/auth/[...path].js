@@ -53,9 +53,9 @@ module.exports = async function handler(req, res) {
     if (cookies.length) {
       const rewritten = cookies.map(cookie =>
         cookie
-          .replace(/;\\s*Domain=[^;]*/ig, "")
-          .replace(/;\\s*Path=\/scms_construction\/auth/ig, "; Path=/")
-          .replace(/;\\s*SameSite=None/ig, "; SameSite=Lax")
+          .replace(/;\s*Domain=[^;]*/ig, "")
+          .replace(/;\s*Path=\/scms_construction\/auth/ig, "; Path=/")
+          .replace(/;\s*SameSite=None/ig, "; SameSite=Lax")
       );
       res.setHeader("Set-Cookie", rewritten);
     }
