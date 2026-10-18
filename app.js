@@ -98,7 +98,7 @@ const titles={dashboard:["ড্যাশবোর্ড","আপনার ন�
       showSignedIn(data);
       return;
     }
-    if (response.status === 403 && data.error) showMessage(data.error);
+    if (response.status === 403 && data.error) showMessage(data.error); else if (response.status >= 500) showMessage(data.error || "সার্ভার কনফিগার করা হয়নি। Vercel-এর Environment Variables সেট করে পুনরায় Deploy করুন।");
   } catch (_) {
     showMessage("সার্ভার সংযোগ পাওয়া যায়নি। Vercel environment variables ও deployment পরীক্ষা করুন।");
   }
