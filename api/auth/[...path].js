@@ -2,7 +2,6 @@ const AUTH_BASE_URL = process.env.NEON_AUTH_BASE_URL || "https://ep-lucky-hill-a
 
 const ALLOWED_PATHS = new Set([
   "/sign-in/email",
-  "/sign-up/email",
   "/sign-out",
   "/get-session"
 ]);
