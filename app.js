@@ -1,6 +1,6 @@
 const $ = (s, root=document) => root.querySelector(s);
 const $$ = (s, root=document) => [...root.querySelectorAll(s)];
-const state = { user:null, projects:[], contractors:[], page:"dashboard", search:"" };
+const state = { user:null, projects:[], contractors:[], workOrders:[], page:"dashboard", search:"" };
 const titles = {
   dashboard:["ড্যাশবোর্ড","আপনার সব প্রজেক্ট ও আর্থিক কার্যক্রমের নিয়ন্ত্রণকেন্দ্র।"],
   projects:["মেইন প্রজেক্ট","মেইন কোম্পানির কাছ থেকে পাওয়া প্রজেক্টের রেজিস্টার।"],
@@ -80,15 +80,16 @@ async function checkSession(){
 async function loadData(){
   showNotice("");
   try{
-    const [p,c]=await Promise.all([api("/api/projects"),api("/api/subcontractors")]);
-    state.projects=p.projects||[];state.contractors=c.subcontractors||[];
-  }catch(err){showNotice(err.message);state.projects=[];state.contractors=[]}
+    const [p,c,w]=await Promise.all([api("/api/projects"),api("/api/subcontractors"),api("/api/workorders")]);
+    state.projects=p.projects||[];state.contractors=c.subcontractors||[];state.workOrders=w.work_orders||[];
+  }catch(err){showNotice(err.message);state.projects=[];state.contractors=[];state.workOrders=[]}
 }
 function renderPage(){
   const view=$("#pageView");setActions("");
   if(state.page==="dashboard") return renderDashboard(view);
   if(state.page==="projects") return renderProjects(view);
   if(state.page==="contractors") return renderContractors(view);
+  if(state.page==="workorders") return renderWorkOrders(view);
   const moduleInfo={
     workorders:["ওয়ার্ক অর্ডার মডিউল","পরবর্তী ধাপে কন্ট্রাক্টর + প্রজেক্ট + BOQ রেট যুক্ত করে ওয়ার্ক অর্ডার তৈরি, rate snapshot সংরক্ষণ এবং Print Work Order চালু হবে।","▣"],
     progress:["দৈনিক অগ্রগতি মডিউল","প্রতিদিনের কাজের তারিখ, আইটেম, মাপ, ছবি ও অগ্রগতির শতাংশ যোগ করে অনুমোদনের পর বিলের সঙ্গে যুক্ত হবে।","◴"],
@@ -148,12 +149,101 @@ function renderContractors(view){
   setActions('<button class="primary-btn" id="newContractorBtn">＋ নতুন সাব-কন্ট্রাক্টর</button>');
   view.innerHTML='<div class="table-toolbar"><div class="count-note">মোট '+state.contractors.length+' জন কন্ট্রাক্টর · কোনো আলাদা লগইন নেই</div><input class="search-input" id="contractorSearch" placeholder="নাম, ফোন বা কোম্পানি খুঁজুন…"></div><div id="contractorTableWrap">'+contractorTable(state.contractors)+'</div>';
   $("#newContractorBtn").onclick=openContractorForm;
-  $("#contractorSearch").addEventListener("input",e=>{const q=e.target.value.toLowerCase();const list=state.contractors.filter(c=>[c.full_name,c.company_name,c.phone,c.email].some(v=>String(v||"").toLowerCase().includes(q)));$("#contractorTableWrap").innerHTML=contractorTable(list)});
+  $("#contractorSearch").addEventListener("input",e=>{const q=e.target.value.toLowerCase();const list=state.contractors.filter(c=>[c.full_name,c.company_name,c.phone,c.email].some(v=>String(v||"").toLowerCase().includes(q)));$("#contractorTableWrap").innerHTML=contractorTable(list);bindContractorActions()});
+  bindContractorActions();
+}
+function bindContractorActions(){
+  const empty=$("#emptyNewContractor");if(empty)empty.onclick=openContractorForm;
+  $("[data-new-workorder]").forEach(b=>b.onclick=()=>openWorkOrderForm(b.dataset.newWorkorder));
 }
 function contractorTable(list){
-  if(!list.length)return '<div class="empty-state"><div class="empty-icon">♙</div><h2>সাব-কন্ট্রাক্টর রেজিস্টার খালি</h2><p>কন্ট্রাক্টরের নাম, ফোন, ঠিকানা ও শর্ত একবার এন্ট্রি করুন। পরের ধাপে তাকে প্রজেক্ট ও ওয়ার্ক অর্ডারের সঙ্গে যুক্ত করা হবে।</p><button class="primary-btn" id="emptyNewContractor">＋ কন্ট্রাক্টর রেজিস্টার</button></div>';
-  return '<div class="table-card"><div class="table-scroll"><table><thead><tr><th>কন্ট্রাক্টর</th><th>ফোন / ইমেইল</th><th>ঠিকানা</th><th>ওয়ার্ক অর্ডার</th><th>অ্যাসাইনড মূল্য</th><th>স্ট্যাটাস</th></tr></thead><tbody>'+list.map(c=>'<tr><td><b>'+esc(c.full_name)+'</b><small>'+esc(c.company_name||"ব্যক্তিগত কন্ট্রাক্টর")+'</small></td><td>'+esc(c.phone||"—")+'<small>'+esc(c.email||"")+'</small></td><td>'+esc(c.address||"—")+'</td><td>'+Number(c.work_order_count||0)+'</td><td class="number">'+money(c.assigned_value)+'</td><td><span class="pill '+(c.status==="ACTIVE"?"active-pill":"pending-pill")+'">'+(c.status==="ACTIVE"?"সক্রিয়":"নিষ্ক্রিয়")+'</span></td></tr>').join("")+'</tbody></table></div></div>';
+  if(!list.length)return '<div class="empty-state"><div class="empty-icon">♙</div><h2>সাব-কন্ট্রাক্টর রেজিস্টার খালি</h2><p>কন্ট্রাক্টরের নাম, ফোন, ঠিকানা ও শর্ত একবার এন্ট্রি করুন। এরপর “ওয়ার্ক অর্ডার তৈরি” বাটনে তার জন্য প্রজেক্টভিত্তিক চুক্তি তৈরি করুন।</p><button class="primary-btn" id="emptyNewContractor">＋ কন্ট্রাক্টর রেজিস্টার</button></div>';
+  return '<div class="table-card"><div class="table-scroll"><table><thead><tr><th>কন্ট্রাক্টর</th><th>ফোন / ইমেইল</th><th>ঠিকানা</th><th>ওয়ার্ক অর্ডার</th><th>অ্যাসাইনড মূল্য</th><th>স্ট্যাটাস</th><th>অ্যাকশন</th></tr></thead><tbody>'+list.map(c=>'<tr><td><b>'+esc(c.full_name)+'</b><small>'+esc(c.company_name||"ব্যক্তিগত কন্ট্রাক্টর")+'</small></td><td>'+esc(c.phone||"—")+'<small>'+esc(c.email||"")+'</small></td><td>'+esc(c.address||"—")+'</td><td>'+Number(c.work_order_count||0)+'</td><td class="number">'+money(c.assigned_value)+'</td><td><span class="pill '+(c.status==="ACTIVE"?"active-pill":"pending-pill")+'">'+(c.status==="ACTIVE"?"সক্রিয়":"নিষ্ক্রিয়")+'</span></td><td><button class="text-btn nowrap" data-new-workorder="'+esc(c.id)+'">＋ ওয়ার্ক অর্ডার</button></td></tr>').join("")+'</tbody></table></div></div>';
 }
+function renderWorkOrders(view){
+  setActions('<button class="primary-btn" id="newWorkOrderBtn">＋ ওয়ার্ক অর্ডার তৈরি</button>');
+  view.innerHTML='<div class="table-toolbar"><div class="count-note">মোট '+state.workOrders.length+'টি ওয়ার্ক অর্ডার · মেইন রেট শুধু Owner-এর জন্য</div><input class="search-input" id="workOrderSearch" placeholder="কোড, প্রজেক্ট বা কন্ট্রাক্টর খুঁজুন…"></div><div id="workOrderTableWrap">'+workOrderTable(state.workOrders)+'</div>';
+  $("#newWorkOrderBtn").onclick=()=>openWorkOrderForm();
+  $("#workOrderSearch").addEventListener("input",e=>{const q=e.target.value.toLowerCase();const list=state.workOrders.filter(w=>[w.work_order_code,w.project_name,w.project_code,w.subcontractor_name].some(v=>String(v||"").toLowerCase().includes(q)));$("#workOrderTableWrap").innerHTML=workOrderTable(list);bindPrintButtons()});
+  bindPrintButtons();
+}
+function workOrderTable(list){
+  if(!list.length)return '<div class="empty-state"><div class="empty-icon">▣</div><h2>এখনো ওয়ার্ক অর্ডার তৈরি হয়নি</h2><p>প্রজেক্ট ও সাব-কন্ট্রাক্টর রেজিস্টার করুন। এরপর মোট সাব-কন্ট্রাক্ট মূল্য লিখলে সিস্টেম গড় ছাড় ও আইটেমভিত্তিক রেট বের করবে।</p><button class="primary-btn" id="emptyNewWorkOrder">＋ প্রথম ওয়ার্ক অর্ডার</button></div>';
+  return '<div class="table-card"><div class="table-scroll"><table><thead><tr><th>ওয়ার্ক অর্ডার</th><th>প্রজেক্ট</th><th>সাব-কন্ট্রাক্টর</th><th>আইটেম</th><th>চুক্তিমূল্য</th><th>স্ট্যাটাস</th><th>প্রিন্ট</th></tr></thead><tbody>'+list.map(w=>'<tr><td><b>'+esc(w.work_order_code)+'</b><small>'+dateText(w.created_at)+'</small></td><td>'+esc(w.project_name)+'<small>'+esc(w.project_code)+'</small></td><td>'+esc(w.subcontractor_name)+'</td><td>'+Number(w.item_count||0)+'</td><td class="number">'+money(w.total_value)+'</td><td><span class="pill pending-pill">'+esc(w.status||"DRAFT")+'</span></td><td><button class="text-btn" data-print-wo="'+esc(w.id)+'">ওয়ার্ক অর্ডার প্রিন্ট</button></td></tr>').join("")+'</tbody></table></div></div>';
+}
+function dateText(value){if(!value)return "—";const d=new Date(value);return Number.isNaN(d.getTime())?String(value):d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})}
+function bindPrintButtons(){
+  const empty=$("#emptyNewWorkOrder");if(empty)empty.onclick=()=>openWorkOrderForm();
+  $("[data-print-wo]").forEach(b=>b.onclick=()=>printWorkOrder(b.dataset.printWo));
+}
+function openWorkOrderForm(preselectedContractor=""){
+  if(!state.projects.length||!state.contractors.length){toast("আগে অন্তত একটি প্রজেক্ট ও একটি সক্রিয় সাব-কন্ট্রাক্টর রেজিস্টার করুন।",true);return}
+  showModal("সাব-কন্ট্রাক্ট ওয়ার্ক অর্ডার তৈরি",`
+    <form id="workOrderForm">
+      <div class="form-grid">
+        <div class="field"><label for="woProject">মেইন প্রজেক্ট *</label><select id="woProject" name="project_id" required><option value="">প্রজেক্ট নির্বাচন করুন</option>${state.projects.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.project_code+" — "+p.name)+'</option>').join("")}</select></div>
+        <div class="field"><label for="woContractor">সাব-কন্ট্রাক্টর *</label><select id="woContractor" name="subcontractor_id" required><option value="">কন্ট্রাক্টর নির্বাচন করুন</option>${state.contractors.filter(c=>c.status==="ACTIVE").map(c=>'<option value="'+esc(c.id)+'" '+(c.id===preselectedContractor?'selected':'')+'>'+esc(c.full_name+(c.company_name?' — '+c.company_name:''))+'</option>').join("")}</select></div>
+        <div class="field"><label for="woMainTotal">মেইন BOQ মোট (৳)</label><input id="woMainTotal" readonly value="প্রজেক্ট নির্বাচন করুন"></div>
+        <div class="field"><label for="woSaleValue">সাব-কন্ট্রাক্ট বিক্রয়মূল্য (৳) *</label><input id="woSaleValue" name="subcontract_value" type="number" min="0.01" step="0.01" required placeholder="যেমন 3050000"></div>
+        <div class="field"><label for="woReduction">গড় ছাড় (%)</label><input id="woReduction" readonly value="—"></div>
+        <div class="field"><label for="woDiscountValue">মোট পার্থক্য (৳)</label><input id="woDiscountValue" readonly value="—"></div>
+        <div class="field"><label for="woStart">কাজ শুরুর তারিখ</label><input id="woStart" name="start_date" type="date"></div>
+        <div class="field"><label for="woDue">কাজ শেষের তারিখ</label><input id="woDue" name="due_date" type="date"></div>
+        <div class="field"><label for="woAdvance">অগ্রিম (%)</label><input id="woAdvance" name="advance_percent" type="number" min="0" max="100" step="0.01" value="0"></div>
+        <div class="field"><label for="woRetention">Retention (%)</label><input id="woRetention" name="retention_percent" type="number" min="0" max="100" step="0.01" value="0"></div>
+        <div class="field full"><label for="woTerms">কাজের শর্ত</label><textarea id="woTerms" name="terms" maxlength="4000" placeholder="অনুমোদিত কাজের অগ্রগতি অনুযায়ী বিল হবে; চুক্তির অতিরিক্ত টাকা দেওয়া হবে না।"></textarea></div>
+        <div class="field full"><div class="notice" style="margin:0">প্রিন্ট কপিতে শুধু সাব-কন্ট্রাক্টের রেট দেখানো হবে। মেইন রেট, ছাড়ের শতাংশ ও কোম্পানির মার্জিন কন্ট্রাক্টরের কপিতে দেখানো হবে না।</div></div>
+        <div class="field full" id="woPreview"><p class="muted">প্রজেক্ট নির্বাচন করলে আইটেম সংখ্যা ও মোট মেইন রেট দেখা যাবে।</p></div>
+      </div>
+      <div class="form-actions"><button class="secondary-btn" type="button" data-cancel>বাতিল</button><button class="primary-btn" type="submit">ওয়ার্ক অর্ডার তৈরি করুন</button></div>
+    </form>`);
+  const form=$("#workOrderForm");form.querySelector("[data-cancel]").onclick=closeModal;
+  const mainTotal=$("#woMainTotal"),sale=$("#woSaleValue"),reduction=$("#woReduction"),difference=$("#woDiscountValue"),preview=$("#woPreview");
+  let boqItems=[],mainValue=0;
+  async function loadBoq(){
+    const id=$("#woProject").value;boqItems=[];mainValue=0;
+    if(!id){mainTotal.value="প্রজেক্ট নির্বাচন করুন";preview.innerHTML='<p class="muted">প্রজেক্ট নির্বাচন করুন।</p>';calc();return}
+    mainTotal.value="লোড হচ্ছে…";preview.innerHTML='<p class="muted">BOQ লোড হচ্ছে…</p>';
+    try{
+      const d=await api("/api/boq?project_id="+encodeURIComponent(id));boqItems=d.items||[];mainValue=Number(d.main_total||0);mainTotal.value=money(mainValue);
+      preview.innerHTML='<div class="notice" style="margin:0">এই প্রজেক্টে '+boqItems.length+'টি main BOQ item পাওয়া গেছে। গড় ছাড় একই অনুপাতে সব আইটেমের rate snapshot-এ প্রয়োগ হবে।</div>';
+      if(!Number(sale.value)&&mainValue)sale.value=mainValue.toFixed(2);calc();
+    }catch(err){mainTotal.value="BOQ পাওয়া যায়নি";preview.innerHTML='<p class="muted">'+esc(err.message)+'</p>';toast(err.message,true)}
+  }
+  function calc(){
+    const sv=Number(sale.value||0);
+    if(mainValue>0&&sv>0){reduction.value=((mainValue-sv)/mainValue*100).toFixed(2)+"%";difference.value=money(mainValue-sv)}
+    else{reduction.value="—";difference.value="—"}
+  }
+  $("#woProject").addEventListener("change",loadBoq);sale.addEventListener("input",calc);
+  if(preselectedContractor)$("#woContractor").value=preselectedContractor;
+  form.addEventListener("submit",async e=>{
+    e.preventDefault();const button=form.querySelector('[type="submit"]');button.disabled=true;
+    const payload=Object.fromEntries(new FormData(form).entries());payload.subcontract_value=Number(payload.subcontract_value);payload.advance_percent=Number(payload.advance_percent||0);payload.retention_percent=Number(payload.retention_percent||0);
+    try{
+      const d=await api("/api/workorders",{method:"POST",body:JSON.stringify(payload)});closeModal();await loadData();setPage("workorders");toast("ওয়ার্ক অর্ডার তৈরি হয়েছে। প্রিন্ট করার জন্য তালিকা থেকে নির্বাচন করুন।");
+    }catch(err){toast(err.message,true)}finally{button.disabled=false}
+  });
+  if(state.projects.length===1){$("#woProject").value=state.projects[0].id;loadBoq()}
+}
+async function printWorkOrder(id){
+  try{
+    const d=await api("/api/workorders?id="+encodeURIComponent(id));const w=d.work_order;
+    const rows=Array.isArray(w.items)?w.items:[];
+    $("#pageView").innerHTML=`
+      <div class="print-toolbar"><button class="secondary-btn" id="backToWorkOrders">← ওয়ার্ক অর্ডারে ফিরুন</button><button class="primary-btn" id="printNow">প্রিন্ট / PDF</button></div>
+      <article class="print-document">
+        <header class="print-header"><div class="print-logo">S</div><div><h2>SOHANUR CONSTRUCTION &amp; MANPOWER SOLUTION</h2><p>Building Trust, Delivering Quality</p><h3>SUB-CONTRACT WORK ORDER</h3></div><div class="print-code"><b>${esc(w.work_order_code)}</b><small>Date: ${dateText(w.created_at)}</small></div></header>
+        <div class="print-meta"><div><small>Project / Site</small><b>${esc(w.project_name)} (${esc(w.project_code)})</b><p>${esc(w.site_address||"")}</p></div><div><small>Sub-contractor</small><b>${esc(w.subcontractor_name)}</b><p>${esc(w.company_name||"")}${w.subcontractor_phone?" · "+esc(w.subcontractor_phone):""}</p><p>${esc(w.subcontractor_address||"")}</p></div></div>
+        <table class="print-table"><thead><tr><th>Sl.</th><th>Item Code</th><th>Work Description</th><th>Unit</th><th>Qty</th><th>Rate (BDT)</th><th>Amount (BDT)</th></tr></thead><tbody>${rows.map((it,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(it.item_code)+'</td><td>'+esc(it.description)+'</td><td>'+esc(it.unit)+'</td><td class="number">'+Number(it.quantity||0).toLocaleString("en-BD")+'</td><td class="number">'+money(it.rate)+'</td><td class="number">'+money(it.line_total)+'</td></tr>').join("")}</tbody><tfoot><tr><th colspan="6">TOTAL SUB-CONTRACT VALUE</th><th class="number">${money(w.total_value)}</th></tr></tfoot></table>
+        <div class="print-terms"><b>Terms &amp; Conditions</b><p>${esc(w.terms||"Payment will be made only against approved work progress and measured quantities. Payment must not exceed the approved earned value. Any unpaid balance remains subject to verified progress and contract terms.")}</p><p>Work Start: ${dateText(w.start_date)} &nbsp;&nbsp; Target Completion: ${dateText(w.due_date)}</p><p>Advance: ${Number(w.advance_percent||0)}% &nbsp;&nbsp; Retention: ${Number(w.retention_percent||0)}%</p></div>
+        <div class="signature-grid"><div><span></span><b>For SCMS (Authorized Signature)</b></div><div><span></span><b>Sub-contractor Signature</b></div></div>
+        <p class="print-footer">This work order contains subcontract rates only. Main company rates and SCMS internal margin are confidential.</p>
+      </article>`;
+    $("#backToWorkOrders").onclick=()=>setPage("workorders");$("#printNow").onclick=()=>window.print();
+  }catch(err){toast(err.message,true)}
+}
+
 function openProjectForm(){
   showModal("নতুন মেইন প্রজেক্ট",`
     <form id="projectForm">
