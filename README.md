@@ -6,28 +6,37 @@
 Mobile-first construction project, BOQ, subcontractor, measurement, attendance, billing, payment, retention, expenses and reporting platform.
 
 ## Architecture
-- Frontend: responsive PWA-ready web application.
-- Database: Neon PostgreSQL.
-- Backend: trusted server-side API; never expose database credentials to the browser.
-- Authorization: OWNER_ADMIN, SUPERVISOR and SUBCONTRACTOR with project-level isolation.
-- Financial records: decimal monetary columns, approval workflow, snapshots, audit and reversal patterns.
+- Frontend: responsive web application / PWA target.
+- Database: dedicated Neon PostgreSQL project, database `scms_construction`.
+- Authentication: Neon Managed Auth (Better Auth) provisioned on the main branch.
+- Data API: provisioned for the `scms` schema, but direct table grants are revoked and RLS remains fail-closed until reviewed role policies and application endpoints are implemented.
+- Backend: must use a trusted server-side API; never expose database credentials to browser code.
+- Roles: OWNER_ADMIN, SUPERVISOR and SUBCONTRACTOR with project-level isolation.
+- Financial records: decimal monetary columns, rate snapshots, approval workflow, audit and reversal patterns.
 
-## Current status
-Phase 1 foundation. The UI is a frontend prototype and the database migration is a starting schema, not a production-ready release. Authentication, trusted API authorization, fully scoped RLS policies, financial transaction services, automated tests, backup/restore and deployment still require implementation and verification.
+## Current implementation status
+The current `index.html`, `styles.css`, and `app.js` remain a **UI preview**, not a production-ready application. Demo dashboard figures are not live records. Authentication UI, trusted API authorization, full CRUD workflows, role-specific views, report exports, tested backup/restore, and production deployment still need to be completed and verified. Do not use the preview to record real financial transactions.
 
-## Database
-Migration: `database/migrations/001_initial_schema.sql`
+## Database migrations
+Apply these in order to a fresh SCMS database using a trusted migration environment:
+1. `database/migrations/001_initial_schema.sql` — baseline 27-table schema and initial RLS.
+2. `database/migrations/002_seed_river_ctg_payment_schedule.sql` — imports the user's RIVER CTG schedule as main-contract lump-sum schedule lines.
+3. `database/migrations/003_financial_calculations_and_audit.sql` — rate calculation, bill net-payable calculation, and append-only audit triggers.
+4. `database/migrations/004_fail_closed_access_control.sql` — enables RLS on all sensitive tables and revokes direct client grants until explicit policies are reviewed.
 
-Apply migrations only from a trusted environment with a private connection string. Do not place secrets in frontend code or commit a real `.env` file.
-
-## Local frontend
-Open `index.html` for the static Phase 1 interface. It uses demonstration-only sample metrics and does not write financial records to a database.
-
-## Required environment variables (server only)
-See `.env.example`.
+The current Neon database has these migrations' changes applied and the RIVER CTG schedule imported. The numeric total is BDT 3,259,141; the source file's amount-in-words says BDT 3,752,000. This discrepancy is noted on the project and must be confirmed before official billing.
 
 ## Security principles
-- Main contract rates and owner margin are owner-only data.
+- Main contract rates, reduction rules, gross spread, and owner profit are OWNER_ADMIN-only.
 - Subcontractor-facing endpoints must use explicit field allow-lists and authorization in the server, not UI hiding.
+- Approved work orders retain immutable rate snapshots; revised rates require a new revision.
 - Approved financial records must be adjusted/reversed rather than silently overwritten.
-- Never claim payments, SMS, WhatsApp, backup or restore are operational until a real provider/workflow is configured and tested.
+- Direct client database access is intentionally denied until role policies are fully implemented and tested.
+- Never claim payments, SMS, WhatsApp, backup, or restore are operational until a real provider/workflow is configured and tested.
+- Never commit a real `.env` file or expose connection strings to browser code.
+
+## Local frontend preview
+Open `index.html` for the static Phase 1 interface. It uses demonstration-only sample metrics and does not write financial records to the database.
+
+## Server environment
+See `.env.example`. Keep all secrets server-side.
