@@ -69,8 +69,9 @@ After deployment, test `/api/health` (expected JSON has `ok: true`, `database: t
 - The app is intended for one SCMS Owner; subcontractors do not receive accounts.
 - Public sign-up is not available. First-time account creation is restricted server-side to the exact `SCMS_OWNER_EMAIL` environment variable.
 - `/api/me`, `/api/projects`, and `/api/subcontractors` verify the authenticated session and require the `OWNER_ADMIN` role server-side.
-- The Projects page now reads and writes project records to Neon, including a main-contract record; the Subcontractors page reads and writes the office-only subcontractor directory.
-- Audit log entries are written when projects and subcontractors are created.
+- The Projects page reads/writes project records in Neon and creates the linked main-contract record. The Subcontractors page manages the private office directory; subcontractors do not get logins.
+- The BOQ page reads/writes main-company items, quantities, and main rates per project. Audit log entries are written for project, BOQ item, and subcontractor creation.
+- Work orders can be generated from the project's main BOQ and a subcontract sale value. The average reduction percentage is calculated proportionally; each item rate is snapshotted in the work order. The print/PDF view exposes subcontract rates only and omits main rates and internal margin.
 - Dashboard metrics are based on API data; fabricated demo project rows and financial figures were removed.
-- Work orders, daily progress, bill approval, payment caps, main-company receivables, and profit/loss remain planned modules and must not be treated as live until their APIs and database workflows are implemented and tested.
+- Daily progress approval, measured quantity workflow, payment caps, main-company receivables, expense ledger, and profit/loss remain planned modules and must not be treated as live until their APIs and database workflows are implemented and tested.
 - The Vercel project is connected to this GitHub repository. Each commit triggered a production deployment marked READY, but the deployment could not be independently fetched from this tool session because Vercel denied the current connection access to the protected deployment.
