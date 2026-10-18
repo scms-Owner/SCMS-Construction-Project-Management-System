@@ -2,6 +2,7 @@ const AUTH_BASE_URL = process.env.NEON_AUTH_BASE_URL || "https://ep-lucky-hill-a
 
 const ALLOWED_PATHS = new Set([
   "/sign-in/email",
+  "/sign-up/email",
   "/sign-out",
   "/get-session"
 ]);
@@ -19,6 +20,16 @@ module.exports = async function handler(req, res) {
   const path = incoming.pathname.replace(/^\/api\/auth/, "") || "/get-session";
   if (!ALLOWED_PATHS.has(path)) {
     return res.status(404).json({ error: "Authentication endpoint not allowed" });
+  }
+
+  if (path === "/sign-up/email") {
+    const ownerEmail = String(process.env.SCMS_OWNER_EMAIL || "").trim().toLowerCase();
+    const body = typeof req.body === "string" ? (() => { try { return JSON.parse(req.body); } catch (_) { return {}; } })() : (req.body || {});
+    const requestedEmail = String(body.email || "").trim().toLowerCase();
+    if (!ownerEmail) return res.status(503).json({ error: "Owner email server settings-এ সেট করা হয়নি।" });
+    if (!requestedEmail || requestedEmail !== ownerEmail) {
+      return res.status(403).json({ error: "শুধু SCMS_OWNER_EMAIL-এ নির্ধারিত Owner অ্যাকাউন্ট তৈরি করা যাবে।" });
+    }
   }
 
   const target = new URL(AUTH_BASE_URL.replace(/\/$/, "") + path);
