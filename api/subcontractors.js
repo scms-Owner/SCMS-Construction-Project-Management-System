@@ -10,7 +10,7 @@ module.exports = async function handler(req, res) {
         SELECT s.id, s.company_name, s.full_name, s.phone, s.email, s.address,
                s.payment_terms, s.retention_percent, s.status, s.created_at,
                COUNT(DISTINCT wo.id) AS work_order_count,
-               COALESCE(SUM(DISTINCT wo_total.total), 0) AS assigned_value
+               COALESCE(SUM(wo_total.total), 0) AS assigned_value
         FROM scms.subcontractors s
         LEFT JOIN scms.work_orders wo ON wo.subcontractor_id = s.id
         LEFT JOIN LATERAL (
