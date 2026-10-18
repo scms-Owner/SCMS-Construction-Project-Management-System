@@ -130,6 +130,7 @@ function renderDashboard(view){
   ${projectTable(recent)}
   `;
   view.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>setPage(b.dataset.go)));
+  const emptyProject=$("#emptyNewProject");if(emptyProject)emptyProject.onclick=openProjectForm;
   setActions('<button class="primary-btn" id="newProjectBtn">＋ নতুন প্রজেক্ট</button>');
   $("#newProjectBtn").onclick=openProjectForm;
 }
@@ -156,6 +157,7 @@ async function renderBoq(view){
   $("#boqProjectSelect").addEventListener("change",async e=>{state.boqProjectId=e.target.value;await loadBoqForPage()});
   if(!selected){$("#boqCount").value="প্রজেক্ট নেই";$("#boqTableWrap").innerHTML='<div class="empty-state"><h2>প্রথমে একটি মেইন প্রজেক্ট তৈরি করুন</h2><p>তারপর সেই প্রজেক্টের BOQ আইটেম ও মেইন রেট এন্ট্রি করতে পারবেন।</p><button class="primary-btn" id="boqCreateProject">＋ নতুন প্রজেক্ট</button></div>';$("#boqCreateProject").onclick=openProjectForm;return}
   await loadBoqForPage();
+  const empty=$("#emptyNewBoq");if(empty)empty.onclick=()=>openBoqForm(state.boqProjectId);
 }
 async function loadBoqForPage(){
   const wrap=$("#boqTableWrap");if(!wrap)return;
@@ -165,6 +167,7 @@ async function loadBoqForPage(){
     $("#boqCount").value=state.boqItems.length+"টি আইটেম";
     const total=Number(d.main_total||0);
     wrap.innerHTML='<div class="metrics" style="grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:15px"><article class="metric"><div class="metric-top"><span>মেইন BOQ মোট</span><span class="metric-icon green">৳</span></div><strong>'+money(total)+'</strong><small>পরিমাণ × মেইন রেট</small></article><article class="metric"><div class="metric-top"><span>রেট এন্ট্রি</span><span class="metric-icon blue">▥</span></div><strong>'+state.boqItems.length+'</strong><small>এই প্রজেক্টে সক্রিয় আইটেম</small></article></div>'+boqTable(state.boqItems);
+    const empty=$("#emptyNewBoq");if(empty)empty.onclick=()=>openBoqForm(state.boqProjectId);
   }catch(err){wrap.innerHTML='<div class="empty-state"><h2>BOQ লোড করা যায়নি</h2><p>'+esc(err.message)+'</p></div>'}
 }
 function boqTable(items){
