@@ -51,10 +51,12 @@
       <h1>আপনার SCMS অ্যাকাউন্টে লগইন করুন</h1>
       <p class="muted auth-intro">Sohanur Construction &amp; Manpower Solution</p>
       <form id="loginForm">
+        <div id="ownerNameRow" hidden><label for="ownerName">আপনার নাম</label><input id="ownerName" name="name" autocomplete="name" maxlength="255" placeholder="Owner-এর নাম"></div>
         <label for="loginEmail">Owner ইমেইল</label><input id="loginEmail" name="email" type="email" autocomplete="username" required maxlength="254" placeholder="আপনার ইমেইল">
         <label for="loginPassword">পাসওয়ার্ড</label><input id="loginPassword" name="password" type="password" autocomplete="current-password" required minlength="8" maxlength="128" placeholder="পাসওয়ার্ড">
         <button class="primary-btn full-btn" id="loginSubmit" type="submit">নিরাপদ লগইন <span>→</span></button>
       </form>
+      <button class="auth-switch" id="authSwitch" type="button">প্রথমবার ব্যবহার করছেন? Owner অ্যাকাউন্ট তৈরি করুন</button>
       <div class="auth-message" id="authMessage" role="status" hidden></div>
       <p class="auth-note">এই অ্যাপে পাবলিক সাইন-আপ নেই। শুধু আপনার আগে থেকে অনুমোদিত Owner অ্যাকাউন্ট প্রবেশ করতে পারবে।</p>
     </section>
