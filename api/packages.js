@@ -11,10 +11,11 @@ module.exports = async function handler(req, res) {
   try {
     const { sql, actor } = await requireOwner(req);
     if (req.method === "GET") {
-      const [catalog, projects, contractors, assignments] = await Promise.all([
+      const [catalog, projects, contractors, projectPackages, assignments] = await Promise.all([
         sql`SELECT id, package_code, package_name, category, unit, active, created_at FROM scms.package_catalog ORDER BY active DESC, package_code`,
         sql`SELECT id, project_code, name, status FROM scms.projects WHERE status <> 'CANCELLED' ORDER BY created_at DESC`,
         sql`SELECT id, full_name, company_name, phone FROM scms.subcontractors WHERE status = 'ACTIVE' ORDER BY full_name`,
+        sql`SELECT pp.id, pp.project_id, pp.package_id, pp.total_quantity, pp.unit_snapshot FROM scms.project_packages pp ORDER BY pp.created_at DESC`,
         sql`
           SELECT pa.id, pa.assignment_code, pa.project_package_id, pa.subcontractor_id,
                  pa.assigned_quantity, pa.rate_snapshot, pa.opening_completed_quantity,
@@ -49,7 +50,7 @@ module.exports = async function handler(req, res) {
           ORDER BY pa.created_at DESC
         `
       ]);
-      return res.status(200).json({ ok: true, catalog, projects, contractors, assignments });
+      return res.status(200).json({ ok: true, catalog, projects, contractors, project_packages: projectPackages, assignments });
     }
     if (req.method !== "POST") {
       res.setHeader("Allow", "GET, POST");
