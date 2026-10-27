@@ -85,7 +85,7 @@ module.exports = async function handler(req, res) {
       const rate = Number(body.rate);
       const openingCompleted = Number(body.opening_completed_quantity || 0);
       if (!projectId || !packageId || !contractorId) return res.status(400).json({ok:false,error:"প্রজেক্ট, প্যাকেজ ও কন্ট্রাক্টর নির্বাচন করুন।"});
-      if (!validAmount(totalQuantity,0.0001) || !validAmount(assignedQuantity,0) || !validAmount(rate,0) || !validAmount(openingCompleted,0) || openingCompleted>assignedQuantity) return res.status(400).json({ok:false,error:"পরিমাণ, রেট ও প্রাথমিক অগ্রগতি যাচাই করুন।"});
+      if (!validAmount(totalQuantity,0.0001) || !validAmount(assignedQuantity,0.0001) || !validAmount(rate,0) || !validAmount(openingCompleted,0) || openingCompleted>assignedQuantity) return res.status(400).json({ok:false,error:"পরিমাণ, রেট ও প্রাথমিক অগ্রগতি যাচাই করুন।"});
       const activePackage = await sql`SELECT id, unit, package_name FROM scms.package_catalog WHERE id=${packageId}::uuid AND active=TRUE LIMIT 1`;
       if (!activePackage.length) return res.status(400).json({ok:false,error:"সক্রিয় প্যাকেজ নির্বাচন করুন।"});
       const p = await sql`SELECT id FROM scms.projects WHERE id=${projectId}::uuid AND status <> 'CANCELLED' LIMIT 1`;
